@@ -3,3 +3,16 @@
 __pycache__/
 *.py[cod]
 .env
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Local SQLite database
+*.db
+*.db-journal
+
+# Environment variables and secrets
+.env
