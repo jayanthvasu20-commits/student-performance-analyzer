@@ -1,31 +1,28 @@
 
 import pandas as pd
-import matplotlib.pyplot as plt
 
-# Load the CSV file
-df = pd.read_csv("students.csv")
+from student_analyzer.analysis import calculate_statistics
+from student_analyzer.charts import create_student_chart
 
-# Display all student records
-print("STUDENT DATA")
-print(df.to_string(index=False))
 
-# Calculate statistics
-print("\nCLASS STATISTICS")
-print("Average marks:", df["Marks"].mean())
-print("Highest marks:", df["Marks"].max())
-print("Lowest marks:", df["Marks"].min())
-print("Students passed:", (df["Marks"] >= 40).sum())
-print("Students failed:", (df["Marks"] < 40).sum())
+def main():
+    df = pd.read_csv("students.csv")
 
-# Create a bar chart
-plt.bar(df["Name"], df["Marks"])
-plt.title("Student Performance")
-plt.xlabel("Student")
-plt.ylabel("Marks")
-plt.ylim(0, 100)
-plt.tight_layout()
+    print("STUDENT DATA")
+    print(df.to_string(index=False))
 
-plt.savefig("student_performance.png")
-plt.show()
+    stats = calculate_statistics(df)
 
-print("\nChart saved as student_performance.png")
+    print("\nCLASS STATISTICS")
+    print(f"Average marks: {stats['average']:.2f}")
+    print(f"Highest marks: {stats['highest']}")
+    print(f"Lowest marks: {stats['lowest']}")
+    print(f"Students passed: {stats['passed']}")
+    print(f"Students failed: {stats['failed']}")
+
+    create_student_chart(df)
+    print("\nChart saved as student_performance.png")
+
+
+if __name__ == "__main__":
+    main()

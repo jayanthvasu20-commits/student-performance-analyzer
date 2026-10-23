@@ -63,3 +63,35 @@ def update_student(student_id, name, marks, grade, result):
             """,
             (name, marks, grade, result, student_id)
         )
+
+def validate_student_input(name, marks):
+    """Return an error message if the input is invalid."""
+
+    if not isinstance(name, str) or not name.strip():
+        return "Student name cannot be empty."
+
+    try:
+        marks = float(marks)
+    except (ValueError, TypeError):
+        return "Marks must be a valid number."
+
+    if not 0 <= marks <= 100:
+        return "Marks must be between 0 and 100."
+
+    return None
+
+def validate_student_input(name, marks):
+    """Validate a student's name and marks."""
+
+    if not isinstance(name, str) or not name.strip():
+        return "Student name cannot be empty."
+
+    try:
+        marks = float(marks)
+    except (ValueError, TypeError):
+        return "Marks must be a valid number."
+
+    if not 0 <= marks <= 100:
+        return "Marks must be between 0 and 100."
+
+    return None

@@ -1,18 +1,19 @@
 
+# Python virtual environments
 .venv/
-__pycache__/
-*.py[cod]
-.env
-# Python virtual environment
-.venv/
+venv/
 
 # Python cache files
 __pycache__/
 *.py[cod]
 
-# Local SQLite database
+# Environment variables and secrets
+.env
+.env.*
+
+# Local SQLite databases
 *.db
 *.db-journal
 
-# Environment variables and secrets
-.env
+# Local student result exports
+student_results.csv

@@ -1,178 +1,386 @@
 
-import streamlit as st
+import sqlite3
 import pandas as pd
+import streamlit as st
 
-from database import (
-    initialize_database,
-    add_student,
-    get_all_students,
-    update_student,
-    delete_student,
-)
+from database import DB_PATH, initialize_database, validate_student_input
 
+
+# --------------------------------------------------
+# PAGE CONFIGURATION
+# --------------------------------------------------
 st.set_page_config(
     page_title="Student Performance Analyzer",
-    page_icon="📊",
-    layout="wide",
+    page_icon="🎓",
+    layout="wide"
 )
 
-# Create the database table if it doesn't exist
-initialize_database()
 
-st.title("📊 Student Performance Analyzer")
-st.write("Add students, analyze performance, and save records permanently.")
+# --------------------------------------------------
+# DATABASE AND VALIDATION HELPERS
+# --------------------------------------------------
+def calculate_grade(marks):
+    if marks >= 90:
+        return "A"
+    elif marks >= 75:
+        return "B"
+    elif marks >= 60:
+        return "C"
+    elif marks >= 40:
+        return "D"
+    return "F"
 
-# Add student form
-with st.form("student_form", clear_on_submit=True):
-    st.subheader("Add a student")
 
-    name = st.text_input("Student name")
-    marks = st.number_input(
-        "Marks out of 100",
+def calculate_result(marks):
+    return "PASS" if marks >= 40 else "FAIL"
+
+
+def load_students():
+    with sqlite3.connect(DB_PATH) as connection:
+        return pd.read_sql_query("""
+            SELECT id, name, marks, grade, result, created_at
+            FROM students
+            ORDER BY id DESC;
+        """, connection)
+
+
+def show_database_error(error):
+    st.error("A database operation failed. Please try again.")
+    # Detailed diagnostic information for local development.
+    st.caption(f"Details: {error}")
+
+
+# --------------------------------------------------
+# INITIALIZE APPLICATION
+# --------------------------------------------------
+st.title("🎓 Student Performance Analyzer")
+st.write(
+    "Manage student records, analyze marks, "
+    "and generate performance reports."
+)
+
+try:
+    initialize_database()
+except sqlite3.Error as error:
+    st.error("Could not initialize the student database.")
+    st.caption(f"Details: {error}")
+    st.stop()
+
+
+# --------------------------------------------------
+# ADD STUDENT
+# --------------------------------------------------
+st.header("➕ Add Student")
+
+with st.form("add_student_form", clear_on_submit=True):
+    new_name = st.text_input("Student name")
+
+    new_marks = st.number_input(
+        "Marks",
         min_value=0.0,
         max_value=100.0,
-        step=1.0,
+        value=50.0,
+        step=1.0
     )
 
-    submitted = st.form_submit_button("Save student")
+    submitted = st.form_submit_button(
+        "Add Student",
+        type="primary"
+    )
 
-if submitted:
-    if not name.strip():
-        st.error("Please enter a student name.")
-    else:
-        if marks >= 90:
-            grade = "A"
-        elif marks >= 75:
-            grade = "B"
-        elif marks >= 60:
-            grade = "C"
-        elif marks >= 40:
-            grade = "D"
+    if submitted:
+        error = validate_student_input(new_name, new_marks)
+
+        if error:
+            st.error(error)
         else:
-            grade = "F"
+            name = new_name.strip()
+            marks = float(new_marks)
+            grade = calculate_grade(marks)
+            result = calculate_result(marks)
 
-        result = "PASS" if marks >= 40 else "FAIL"
+            try:
+                with sqlite3.connect(DB_PATH) as connection:
+                    connection.execute("""
+                        INSERT INTO students
+                            (name, marks, grade, result)
+                        VALUES (?, ?, ?, ?);
+                    """, (name, marks, grade, result))
 
-        add_student(name.strip(), marks, grade, result)
-        st.success(f"Saved {name.strip()} to the database!")
-        st.rerun()
+                st.success(f"Student '{name}' added successfully!")
+                st.rerun()
 
-# Load saved records from SQLite
-records = get_all_students()
+            except sqlite3.Error as error:
+                show_database_error(error)
 
-if records:
-    df = pd.DataFrame(
-        records,
-        columns=[
-            "ID", "Name", "Marks", "Grade", "Result", "Created At"
-        ],
+
+# --------------------------------------------------
+# LOAD CURRENT DATA
+# --------------------------------------------------
+try:
+    students_df = load_students()
+except (sqlite3.Error, pd.errors.DatabaseError) as error:
+    st.error("Could not load student records.")
+    st.caption(f"Details: {error}")
+    st.stop()
+
+
+# --------------------------------------------------
+# OVERALL STATISTICS
+# --------------------------------------------------
+st.header("📊 Performance Overview")
+
+with sqlite3.connect(DB_PATH) as connection:
+    total, average, highest, lowest, passed = connection.execute("""
+        SELECT
+            COUNT(*),
+            AVG(marks),
+            MAX(marks),
+            MIN(marks),
+            COALESCE(
+                SUM(CASE WHEN marks >= 40 THEN 1 ELSE 0 END),
+                0
+            )
+        FROM students;
+    """).fetchone()
+
+pass_percentage = (
+    passed / total * 100 if total > 0 else 0
+)
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+col1.metric("Total Students", total)
+col2.metric(
+    "Average Marks",
+    f"{average:.2f}" if average is not None else "N/A"
+)
+col3.metric(
+    "Highest Marks",
+    f"{highest:g}" if highest is not None else "N/A"
+)
+col4.metric(
+    "Lowest Marks",
+    f"{lowest:g}" if lowest is not None else "N/A"
+)
+col5.metric("Pass Percentage", f"{pass_percentage:.1f}%")
+
+
+# --------------------------------------------------
+# GRADE DISTRIBUTION
+# --------------------------------------------------
+st.header("📈 Grade Distribution")
+
+if not students_df.empty:
+    grade_data = (
+        students_df.groupby("grade")
+        .size()
+        .reset_index(name="Students")
+        .sort_values("grade")
     )
 
-    st.subheader("Saved student records")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.bar_chart(
+        grade_data.set_index("grade"),
+        y="Students"
+    )
+else:
+    st.info("Add students to see the grade distribution.")
 
-    average = df["Marks"].mean()
-    passed = int((df["Result"] == "PASS").sum())
-    failed = int((df["Result"] == "FAIL").sum())
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Class average", f"{average:.2f}")
-    col2.metric("Passed", passed)
-    col3.metric("Failed", failed)
+# --------------------------------------------------
+# SEARCH AND FILTER
+# --------------------------------------------------
+st.header("🔎 Search and Filter Students")
 
-    st.subheader("Marks chart")
-    
-    chart_data = df.sort_values("Name").set_index("Name")[["Marks"]]
-    st.bar_chart(chart_data)
+col_search, col_grade = st.columns(2)
 
-    # Download saved data
-    csv_data = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download student records (CSV)",
-        data=csv_data,
-        file_name="student_results.csv",
-        mime="text/csv",
+with col_search:
+    search_name = st.text_input(
+        "Search by student name",
+        placeholder="Enter a name"
     )
 
-    
-# Edit an existing student
-st.subheader("Edit a student")
+with col_grade:
+    grade_options = ["All Grades"] + sorted(
+        students_df["grade"].dropna().unique().tolist()
+    )
 
-if not df.empty:
-    selected_id = st.selectbox(
-        "Choose a student ID to edit",
-        df["ID"].tolist(),
-        format_func=lambda sid: (
-            f"{df.loc[df['ID'] == sid, 'Name'].iloc[0]} "
-            f"(ID: {sid})"
+    selected_grade = st.selectbox(
+        "Filter by grade",
+        grade_options
+    )
+
+filtered_df = students_df.copy()
+
+if search_name.strip():
+    filtered_df = filtered_df[
+        filtered_df["name"].str.contains(
+            search_name.strip(),
+            case=False,
+            na=False,
+            regex=False
+        )
+    ]
+
+if selected_grade != "All Grades":
+    filtered_df = filtered_df[
+        filtered_df["grade"] == selected_grade
+    ]
+
+display_columns = ["id", "name", "marks", "grade", "result"]
+
+st.dataframe(
+    filtered_df[display_columns],
+    use_container_width=True,
+    hide_index=True
+)
+
+st.caption(f"Showing {len(filtered_df)} student(s)")
+
+
+# --------------------------------------------------
+# CSV DOWNLOAD
+# --------------------------------------------------
+st.download_button(
+    label="📥 Download Filtered Report (CSV)",
+    data=filtered_df[display_columns].to_csv(
+        index=False
+    ).encode("utf-8"),
+    file_name="student_performance_report.csv",
+    mime="text/csv"
+)
+
+
+# --------------------------------------------------
+# EDIT STUDENT
+# --------------------------------------------------
+st.header("✏️ Edit Student")
+
+if students_df.empty:
+    st.info("Add a student before using the edit section.")
+else:
+    student_options = students_df[
+        ["id", "name", "marks"]
+    ].to_dict("records")
+
+    selected_student = st.selectbox(
+        "Choose a student to edit",
+        student_options,
+        format_func=lambda student: (
+            f"ID {student['id']} — {student['name']} "
+            f"({student['marks']} marks)"
         ),
-        key="edit_student_id",
+        key="edit_student"
     )
-
-    student = df.loc[df["ID"] == selected_id].iloc[0]
 
     with st.form("edit_student_form"):
-        edited_name = st.text_input(
-            "Student name",
-            value=str(student["Name"]),
+        edit_name = st.text_input(
+            "Updated name",
+            value=selected_student["name"]
         )
 
-        edited_marks = st.number_input(
-            "Marks out of 100",
+        edit_marks = st.number_input(
+            "Updated marks",
             min_value=0.0,
             max_value=100.0,
-            value=float(student["Marks"]),
-            step=1.0,
+            value=float(selected_student["marks"]),
+            step=1.0
         )
 
-        update_clicked = st.form_submit_button("Update student")
+        edit_submitted = st.form_submit_button("Save Changes")
 
-    if update_clicked:
-        if not edited_name.strip():
-            st.error("Student name cannot be empty.")
-        else:
-            if edited_marks >= 90:
-                edited_grade = "A"
-            elif edited_marks >= 75:
-                edited_grade = "B"
-            elif edited_marks >= 60:
-                edited_grade = "C"
-            elif edited_marks >= 40:
-                edited_grade = "D"
+        if edit_submitted:
+            error = validate_student_input(edit_name, edit_marks)
+
+            if error:
+                st.error(error)
             else:
-                edited_grade = "F"
+                name = edit_name.strip()
+                marks = float(edit_marks)
+                grade = calculate_grade(marks)
+                result = calculate_result(marks)
 
-            edited_result = (
-                "PASS" if edited_marks >= 40 else "FAIL"
-            )
+                try:
+                    with sqlite3.connect(DB_PATH) as connection:
+                        cursor = connection.execute("""
+                            UPDATE students
+                            SET name = ?, marks = ?, grade = ?, result = ?
+                            WHERE id = ?;
+                        """, (
+                            name,
+                            marks,
+                            grade,
+                            result,
+                            selected_student["id"]
+                        ))
 
-            update_student(
-                int(selected_id),
-                edited_name.strip(),
-                edited_marks,
-                edited_grade,
-                edited_result,
-            )
+                    if cursor.rowcount == 0:
+                        st.warning("The student record was not found.")
+                    else:
+                        st.success("Student updated successfully!")
+                        st.rerun()
 
-            st.success("Student updated successfully!")
-            st.rerun()
+                except sqlite3.Error as error:
+                    show_database_error(error)
 
-# Delete an existing student
-st.subheader("Delete a student")
 
-if not df.empty:
-    delete_id = st.selectbox(
-        "Choose a student ID to delete",
-        df["ID"].tolist(),
-        format_func=lambda sid: (
-            f"{df.loc[df['ID'] == sid, 'Name'].iloc[0]} "
-            f"(ID: {sid})"
+# --------------------------------------------------
+# DELETE STUDENT
+# --------------------------------------------------
+st.header("🗑️ Delete Student")
+
+if students_df.empty:
+    st.info("There are no student records to delete.")
+else:
+    delete_options = students_df[
+        ["id", "name", "marks"]
+    ].to_dict("records")
+
+    selected_delete = st.selectbox(
+        "Choose a student to delete",
+        delete_options,
+        format_func=lambda student: (
+            f"ID {student['id']} — {student['name']} "
+            f"({student['marks']} marks)"
         ),
-        key="delete_student_id",
+        key="delete_student"
     )
 
-    if st.button("Delete selected student", type="secondary"):
-        delete_student(int(delete_id))
-        st.success("Student deleted successfully!")
-        st.rerun()
+    confirm_delete = st.checkbox(
+        f"I confirm that I want to delete "
+        f"{selected_delete['name']}.",
+        key="confirm_delete"
+    )
 
+    if st.button(
+        "Delete Selected Student",
+        type="secondary"
+    ):
+        if not confirm_delete:
+            st.warning("Please confirm before deleting.")
+        else:
+            try:
+                with sqlite3.connect(DB_PATH) as connection:
+                    cursor = connection.execute(
+                        "DELETE FROM students WHERE id = ?;",
+                        (selected_delete["id"],)
+                    )
+
+                if cursor.rowcount == 0:
+                    st.warning("The student record was not found.")
+                else:
+                    st.success("Student deleted successfully!")
+                    st.rerun()
+
+            except sqlite3.Error as error:
+                show_database_error(error)
+
+
+# --------------------------------------------------
+# FOOTER
+# --------------------------------------------------
+st.divider()
+st.caption(
+    "Student Performance Analyzer | "
+    "Python • Streamlit • SQLite • SQL"
+)
