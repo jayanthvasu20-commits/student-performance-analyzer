@@ -1,33 +1,50 @@
-# Student Performance Analyzer 📊
 
-A beginner-friendly Python project that analyzes student marks and assigns grades and pass/fail results.
+# 🎓 Student Performance Analyzer
 
-## Features
+A Python-based web application that helps manage student records, analyze academic performance, and generate interactive reports using Streamlit, SQLite, and SQL.
 
-- Accepts the student's name and marks.
-- Validates marks between 0 and 100.
-- Assigns grades based on the marks.
-- Displays the student's result.
+## 🚀 Features
 
-## Technologies Used
+- **Student Management:** Add, edit, and delete student records.
+- **SQLite Database:** Persist student data between sessions.
+- **Input Validation:** Validate student names and marks before saving.
+- **Error Handling:** Handle common database and input errors.
+- **Performance Analytics:** View total students, average marks, highest marks, and lowest marks.
+- **Pass Percentage:** Calculate the percentage of students scoring 40 or above.
+- **Grade Distribution:** Visualize the distribution of student grades.
+- **Search and Filtering:** Search by name and filter by grade.
+- **CSV Export:** Download student reports for further analysis.
+- **SQL Practice:** Explore queries, aggregations, joins, views, subqueries, and indexes.
 
-- Python
-- Git and GitHub
-- pandas (installed for future data analysis features)
+## 🛠️ Tech Stack
 
-## Grading System
-
-| Marks | Grade |
+| Technology | Purpose |
 |---|---|
-| 90–100 | A |
-| 75–89.99 | B |
-| 60–74.99 | C |
-| 40–59.99 | D |
-| Below 40 | F |
+| Python | Application logic |
+| Streamlit | Interactive web interface |
+| SQLite | Database storage |
+| SQL | Queries and reporting |
+| Pandas | Data processing |
+| Matplotlib | Data visualization |
 
-Students scoring 40 or above pass.
+## 📁 Project Structure
 
-## Getting Started
+```text
+StudentsPA/
+├── dashboard.py
+├── database.py
+├── app.py
+├── analyze_data.py
+├── practice_sql.py
+├── test_validation.py
+├── student_analyzer/
+├── students.csv
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+
+## ⚙️ Installation and Setup
 
 ### 1. Clone the repository
 
@@ -38,13 +55,10 @@ cd student-performance-analyzer
 
 ### 2. Create a virtual environment
 
-```bash
-python -m venv .venv
-```
-
-Activate it on Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -54,29 +68,52 @@ Activate it on Windows PowerShell:
 python -m pip install -r requirements.txt
 ```
 
-### 4. Run the program
+### 4. Run the dashboard
 
 ```bash
-python app.py
+streamlit run dashboard.py
 ```
 
-## Example Output
+Streamlit will display a local URL in the terminal. Open it in your browser.
 
-```text
-STUDENT PERFORMANCE ANALYZER
-Enter your name: Jayanth
-Enter your marks out of 100: 85
-Grade: B
-Result: PASS
+## 📊 Grading System
+
+| Marks | Grade | Result |
+|---:|---|---|
+| 90–100 | A | PASS |
+| 75–89.99 | B | PASS |
+| 60–74.99 | C | PASS |
+| 40–59.99 | D | PASS |
+| Below 40 | F | FAIL |
+
+## 🗄️ Database
+
+The application uses SQLite to store student records locally. The database is created automatically when the dashboard initializes.
+
+The local database file is excluded from Git using `.gitignore`.
+
+## 🧪 Validation Tests
+
+Run the input validation tests with:
+
+```bash
+python test_validation.py
 ```
 
-## Future Improvements
+## 🔮 Future Improvements
 
-- Store marks for multiple students.
-- Calculate average marks and class statistics.
-- Analyze student data using pandas.
-- Add visualizations and machine learning features.
+- User authentication and role-based access
+- More detailed subject-wise analytics
+- Automated testing with `pytest`
+- Cloud deployment with a suitable persistent database
+- Student performance trends over time
 
-## Author
+## 👨‍💻 Author
 
-Jayanth
+**Jayanth Vasu**
+
+GitHub: [@jayanthvasu20-commits](https://github.com/jayanthvasu20-commits)
+
+---
+
+*Built as a learning project to practice Python, SQL, databases, and interactive data analytics.*
